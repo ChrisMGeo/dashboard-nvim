@@ -11,7 +11,13 @@ local function get_center(config)
   local items = center_config.items or center_config
   local alignment = center_config.alignment or 'center'
   local in_alignment = center_config.in_alignment or 'left'
-  return { items = items, alignment = alignment, in_alignment = in_alignment }
+  local key_format = center_config.key_format or ' [%s]'
+  return {
+    items = items,
+    alignment = alignment,
+    in_alignment = in_alignment,
+    key_format = key_format,
+  }
 end
 
 local function generate_center(config, first_line)
@@ -20,6 +26,7 @@ local function generate_center(config, first_line)
   local items = center_config.items
   local alignment = center_config.alignment
   local in_alignment = center_config.in_alignment
+  local key_format = center_config.key_format
 
   local counts = {}
   for _, item in pairs(items) do
@@ -110,7 +117,7 @@ local function generate_center(config, first_line)
           table.insert(virt_tbl, { items[idx].keymap, 'DashboardShortCut' })
         end
         table.insert(virt_tbl, {
-          string.format(items[idx].key_format or ' [%s]', items[idx].key),
+          string.format(items[idx].key_format or (key_format or ' [%s]'), items[idx].key),
           items[idx].key_hl or 'DashboardKey',
         })
         api.nvim_buf_set_extmark(config.bufnr, ns, first_line + i - 1, 0, {
