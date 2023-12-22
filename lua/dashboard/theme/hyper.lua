@@ -1,6 +1,8 @@
 local api, keymap, uv = vim.api, vim.keymap, vim.loop
 local utils = require('dashboard.utils')
 local ns = api.nvim_create_namespace('dashboard')
+local header_module = require('dashboard.theme.header')
+local background_module = require('dashboard.theme.background')
 
 local function gen_shortcut(config)
   local shortcut = config.shortcut
@@ -485,7 +487,9 @@ local function theme_instance(config)
     if config.disable_move then
       utils.disable_move_key(config.bufnr)
     end
-    require('dashboard.theme.header').generate_header(config)
+    utils.turn_modifiable_on(config.bufnr)
+    background_module.generate_background(config)
+    header_module.generate_header(config)
     gen_shortcut(config)
     load_packages(config)
     gen_center(plist, config)

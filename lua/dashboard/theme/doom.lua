@@ -1,15 +1,28 @@
 local api = vim.api
 local utils = require('dashboard.utils')
+local header_module = require('dashboard.theme.header')
+local background_module = require('dashboard.theme.background')
 
-local function generate_center(config)
-  local lines = {}
-  local center = config.center
+local function get_center(config)
+  local center_config = config.center
     or {
       { desc = 'Please config your own center section', key = 'p' },
     }
+  local items = center_config.items or center_config
+  local alignment = center_config.alignment or 'center'
+  local in_alignment = center_config.in_alignment or 'left'
+  return { items = items, alignment = alignment, in_alignment = in_alignment }
+end
+
+local function generate_center(config, first_line)
+  local lines = {}
+  local center_config = get_center(config)
+  local items = center_config.items
+  local alignment = center_config.alignment
+  local in_alignment = center_config.in_alignment
 
   local counts = {}
-  for _, item in pairs(center) do
+  for _, item in pairs(items) do
     local count = item.keymap and #item.keymap or 0
     local line = (item.icon or '') .. item.desc
 
@@ -45,16 +58,17 @@ local function generate_center(config)
     table.insert(counts, 0)
   end
 
-  lines = utils.element_align(lines)
-  lines = utils.center_align(lines)
+  lines = utils.align_lines(lines, in_alignment, true)
+  -- lines = utils.element_align(lines)
+  -- lines = utils.center_align(lines)
   for i, count in ipairs(counts) do
     lines[i] = lines[i]:sub(1, #lines[i] - count)
   end
 
-  local first_line = api.nvim_buf_line_count(config.bufnr)
-  api.nvim_buf_set_lines(config.bufnr, first_line, -1, false, lines)
+  first_line = first_line or api.nvim_buf_line_count(config.bufnr)
+  local extents = utils.buf_set_aligned_lines(lines, config.bufnr, first_line, -1, false, alignment)
 
-  if not config.center then
+  if not items then
     return
   end
 
@@ -66,16 +80,17 @@ local function generate_center(config)
       local idx = i == 1 and i or i - seed
       seed = seed + 1
       pos_map[i] = idx
-      local _, scol = lines[i]:find('%s+')
-      local ecol = scol + (config.center[idx].icon and #config.center[idx].icon or 0)
+      local scol = extents[i].col_start
+      -- local _, scol = lines[i]:find('%s+', extents[i].col_start + 1)
+      local ecol = scol + (items[idx].icon and vim.api.nvim_strwidth(items[idx].icon or ''))
 
-      if config.center[idx].icon then
+      if items[idx].icon then
         api.nvim_buf_add_highlight(
           config.bufnr,
           0,
-          config.center[idx].icon_hl or 'DashboardIcon',
+          items[idx].icon_hl or 'DashboardIcon',
           first_line + i - 1,
-          0,
+          scol,
           ecol
         )
       end
@@ -83,20 +98,20 @@ local function generate_center(config)
       api.nvim_buf_add_highlight(
         config.bufnr,
         0,
-        config.center[idx].desc_hl or 'DashboardDesc',
+        items[idx].desc_hl or 'DashboardDesc',
         first_line + i - 1,
         ecol,
-        -1
+        extents[i].col_end
       )
 
-      if config.center[idx].key then
+      if items[idx].key then
         local virt_tbl = {}
-        if config.center[idx].keymap then
-          table.insert(virt_tbl, { config.center[idx].keymap, 'DashboardShortCut' })
+        if items[idx].keymap then
+          table.insert(virt_tbl, { items[idx].keymap, 'DashboardShortCut' })
         end
         table.insert(virt_tbl, {
-          string.format(config.center[idx].key_format or ' [%s]', config.center[idx].key),
-          config.center[idx].key_hl or 'DashboardKey',
+          string.format(items[idx].key_format or ' [%s]', items[idx].key),
+          items[idx].key_hl or 'DashboardKey',
         })
         api.nvim_buf_set_extmark(config.bufnr, ns, first_line + i - 1, 0, {
           virt_text_pos = 'eol',
@@ -137,16 +152,16 @@ local function generate_center(config)
   vim.keymap.set('n', config.confirm_key or '<CR>', function()
     local curline = api.nvim_win_get_cursor(0)[1]
     local index = pos_map[curline - first_line]
-    if index and config.center[index].action then
-      if type(config.center[index].action) == 'string' then
-        local dump = loadstring(config.center[index].action)
+    if index and items[index].action then
+      if type(items[index].action) == 'string' then
+        local dump = loadstring(items[index].action)
         if not dump then
-          vim.cmd(config.center[index].action)
+          vim.cmd(items[index].action)
         else
           dump()
         end
-      elseif type(config.center[index].action) == 'function' then
-        config.center[index].action()
+      elseif type(items[index].action) == 'function' then
+        items[index].action()
       else
         print('Error with action, check your config')
       end
@@ -154,8 +169,7 @@ local function generate_center(config)
   end, { buffer = config.bufnr, nowait = true, silent = true })
 end
 
-local function generate_footer(config)
-  local first_line = api.nvim_buf_line_count(config.bufnr)
+local function get_footer(config)
   local package_manager_stats = utils.get_package_manager_stats()
   local footer = {}
   if package_manager_stats.name == 'lazy' then
@@ -187,17 +201,41 @@ local function generate_footer(config)
       footer = config.footer
     end
   end
-  api.nvim_buf_set_lines(config.bufnr, first_line, -1, false, utils.center_align(footer))
-  for i = 1, #footer do
-    api.nvim_buf_add_highlight(config.bufnr, 0, 'DashboardFooter', first_line + i - 1, 0, -1)
+  return footer
+end
+
+local function generate_footer(config, first_line)
+  first_line = first_line or api.nvim_buf_line_count(config.bufnr)
+  local footer = get_footer(config)
+  local extents = utils.buf_set_aligned_lines(footer, config.bufnr, first_line)
+  for i, extent in pairs(extents) do
+    api.nvim_buf_add_highlight(
+      config.bufnr,
+      0,
+      'DashboardFooter',
+      first_line + i - 1,
+      extent.col_start,
+      extent.col_end
+    )
   end
 end
 
 ---@private
 local function theme_instance(config)
-  require('dashboard.theme.header').generate_header(config)
-  generate_center(config)
-  generate_footer(config)
+  utils.turn_modifiable_on(config.bufnr)
+  local header_config = header_module.get_header(config)
+  local header_height = #header_config.lines
+  local center_config = get_center(config)
+  local center_height = 2 * #center_config.items
+  local footer_config = get_footer(config)
+  local footer_height = #footer_config
+  background_module.generate_background(
+    config,
+    header_height + 1 + center_height + 1 + footer_height + 1 + vim.o.lines
+  )
+  header_module.generate_header(config)
+  generate_center(config, header_height + 1)
+  generate_footer(config, header_height + 1 + center_height + 1)
   api.nvim_set_option_value('modifiable', false, { buf = config.bufnr })
   api.nvim_set_option_value('modified', false, { buf = config.bufnr })
   --defer until next event loop
