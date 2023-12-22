@@ -66,6 +66,7 @@ local function generate_center(config, first_line)
   end
 
   lines = utils.align_lines(lines, in_alignment, true)
+  print(vim.inspect(lines))
   -- lines = utils.element_align(lines)
   -- lines = utils.center_align(lines)
   for i, count in ipairs(counts) do
@@ -89,7 +90,7 @@ local function generate_center(config, first_line)
       pos_map[i] = idx
       local scol = extents[i].col_start
       -- local _, scol = lines[i]:find('%s+', extents[i].col_start + 1)
-      local ecol = scol + (items[idx].icon and vim.api.nvim_strwidth(items[idx].icon or ''))
+      local ecol = scol + (items[idx].icon and api.nvim_strwidth(items[idx].icon) or 0)
 
       if items[idx].icon then
         api.nvim_buf_add_highlight(
@@ -117,7 +118,7 @@ local function generate_center(config, first_line)
           table.insert(virt_tbl, { items[idx].keymap, 'DashboardShortCut' })
         end
         table.insert(virt_tbl, {
-          string.format(items[idx].key_format or (key_format or ' [%s]'), items[idx].key),
+          string.format(items[idx].key_format or key_format, items[idx].key),
           items[idx].key_hl or 'DashboardKey',
         })
         api.nvim_buf_set_extmark(config.bufnr, ns, first_line + i - 1, 0, {
@@ -128,12 +129,11 @@ local function generate_center(config, first_line)
     end
   end
 
-  local line = api.nvim_buf_get_lines(config.bufnr, first_line, first_line + 1, false)[1]
-  local col = line:find('%w')
+  local col = extents[1].col_start + api.nvim_strwidth(items[1].icon or '')
   col = col and col - 1 or 9999
   api.nvim_win_set_cursor(config.winid, { first_line + 1, col })
 
-  local bottom = api.nvim_buf_line_count(config.bufnr)
+  local bottom = first_line + 2 * #items
   vim.defer_fn(function()
     local before = 0
     if api.nvim_get_current_buf() ~= config.bufnr then
