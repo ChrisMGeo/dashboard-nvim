@@ -66,12 +66,12 @@ local function generate_center(config, first_line)
   end
 
   lines = utils.align_lines(lines, in_alignment, true)
-  print(vim.inspect(lines))
   -- lines = utils.element_align(lines)
   -- lines = utils.center_align(lines)
   for i, count in ipairs(counts) do
     lines[i] = lines[i]:sub(1, #lines[i] - count)
   end
+  -- print(vim.inspect(lines))
 
   first_line = first_line or api.nvim_buf_line_count(config.bufnr)
   local extents = utils.buf_set_aligned_lines(lines, config.bufnr, first_line, -1, false, alignment)

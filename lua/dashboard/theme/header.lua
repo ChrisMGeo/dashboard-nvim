@@ -116,7 +116,7 @@ local function get_header(config)
   end
 
   local empty_table = utils.generate_empty_table(config.file_height + 4)
-  return { lines = empty_table, alignment = 'center', in_alignment = 'center' }
+  return { lines = empty_table, alignment = 'center', in_alignment = 'left' }
 end
 
 local function generate_header(config)

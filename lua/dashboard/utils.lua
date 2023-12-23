@@ -99,8 +99,8 @@ end
 ---@param strict_indexing boolean? Whether an invalid index should be errored
 ---@param alignment Alignment? How to horizontally align block of text in relation to buffer
 ---@param in_alignment Alignment? How to horizontally align each line of lines in relation to the longest line (For block of text where lines may not be of equal length) TODO: Implement
----@return string[]
----@return Extent[]
+---@return string[] aligned_lines New lines after block of text is aligned on buffer content
+---@return Extent[] extents Extents of each line in lines {col_start: 0, col_end: 0} if line isn't present
 function utils.align_conserve(lines, buffer, start, end_, strict_indexing, alignment, in_alignment)
   vim.validate({
     lines = { lines, 'table' },
